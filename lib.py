@@ -4,6 +4,8 @@ import os
 
 # pacchetti
 import numpy as np
+import pandas as pd
+import scipy
 from nptdms import TdmsFile
 
 #--------------------------------------------------------------------------
@@ -125,8 +127,83 @@ def estrai_tdms(file):
     # misure
     signals = np.column_stack([ch[:] for ch in group.channels()[2:]])
 
+    print(f'Estratto: {file}!\n')
+
     return signals,time,fsamp
 
+#--------------------------------------------------------------------------
+def scrivi_xlsx(writer, nome, intestazione,label,arr):
+    """ Scrive file .xlsx con la possibilità di definire il nome della scheda è un'intestazione
+        INPUT:
+        writer = oggetto su cui scrivere
+        nome = nume da assegnare al file finale
+        intestazione = vettore di stringhe in cui ogni elemento è una riga dell'intestazione
+        label = vettore di stringhe con label delle colonne
+        arr = matrice di dati
+    
+        OUTPUT:
+        -
+    """
+    pd.DataFrame(arr,columns=label).to_excel(writer, sheet_name=nome,index=False,startrow=len(intestazione))
+    ws = writer.sheets[nome]
+    for i,riga in enumerate(intestazione):
+        cella = 'A'+str(i+1)
+        ws[cella] = riga
+
+#--------------------------------------------------------------------------
+def ffg(x,N,dt):
+    """ right-side fft di x.
+        INPUT:
+        x = segnale
+        N = numero di punti
+        dt = delta t segnale
+
+        OUTPUT: mod, fase, freq fft
+    """
+
+    A = scipy.fft.rfft(x) 
+    freq = scipy.fft.rfftfreq(N,d=dt)
+
+    mod = np.abs(A)
+
+    # se pari: freq 0 e freq Nyquist non vanno raddoppiate. Ci sono 1 volta sola
+    # se dispari: freq 0 non va raddoppiata. freq Nyquist non c'è
+    if N % 2 == 0:
+        mod[1:-1] *= 2
+    else:
+        mod[1:] *= 2
+    
+    fase = np.angle(x)
+
+    return mod,fase,freq
+#--------------------------------------------------------------------------
+def ricofft(x,arm1,arm2,media):
+    """ filtro quadrato in frequenza
+            INPUT:
+            x = segnale
+            arm1 = armonica HP
+            arm2 = armonica LP
+            media = armonica 0
+
+            OUTPUT: 
+            xric = segnale ricostruito
+    """
+    A = scipy.fft.fft(x)
+    N = len(A)
+
+    QA = np.zeros(A.shape)
+
+    for ii in np.arange(arm1,arm2+1,1):
+        QA[ii] = A[ii]
+        QA[N-ii+1] = A[N-ii+1]
+
+    if media:
+        QA[0] = A[0]
+    
+    xric = scipy.fft.ifft(QA)
+    xric = xric.real 
+
+    return xric
 
 
 # mi serve per debug
