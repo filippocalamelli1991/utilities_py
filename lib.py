@@ -120,11 +120,12 @@ def estrai_tdms(file):
     # t
     t_abs = group.channels()[0][:]
     t0 = t_abs[0]
-    time = (t_abs - t0) / np.timedelta64(1, 's')
+    time = (t_abs-t0) / np.timedelta64(1, 's')
     dt = np.mean(np.diff(time))
-    fsamp = 1.0 / dt
+    fsamp = np.round(1.0/dt)
 
     # misure
+    # attenzione a colonna iniziale
     signals = np.column_stack([ch[:] for ch in group.channels()[2:]])
 
     print(f'Estratto: {file}!\n')
@@ -164,7 +165,7 @@ def ffg(x,N,dt):
     A = scipy.fft.rfft(x) 
     freq = scipy.fft.rfftfreq(N,d=dt)
 
-    mod = np.abs(A)
+    mod = np.abs(A)/N
 
     # se pari: freq 0 e freq Nyquist non vanno raddoppiate. Ci sono 1 volta sola
     # se dispari: freq 0 non va raddoppiata. freq Nyquist non c'è
@@ -188,14 +189,17 @@ def ricofft(x,arm1,arm2,media):
             OUTPUT: 
             xric = segnale ricostruito
     """
+    arm1 = np.round(arm1)
+    arm2 = np.round(arm2)
+
     A = scipy.fft.fft(x)
     N = len(A)
 
-    QA = np.zeros(A.shape)
+    QA = np.zeros(A.shape,dtype=complex)
 
-    for ii in np.arange(arm1,arm2+1,1):
+    for ii in np.arange(arm1,arm2+1,1).astype(int):
         QA[ii] = A[ii]
-        QA[N-ii+1] = A[N-ii+1]
+        QA[N-ii] = A[N-ii]
 
     if media:
         QA[0] = A[0]
